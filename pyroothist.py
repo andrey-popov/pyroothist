@@ -123,6 +123,26 @@ class Hist1D:
             raise RuntimeError('Not a supported way of initialization.')
     
     
+    def __add__(self, other):
+        """Add another histogram."""
+        
+        if isinstance(other, ROOT.TH1):
+            other = Hist1D(other)
+        
+        if self.is_blanc:
+            return deepcopy(other)
+        elif other.is_blanc:
+            return deepcopy(self)
+        
+        self._check_binning(other)
+        
+        return Hist1D(
+            binning=np.copy(self.binning),
+            contents=self.contents + other.contents,
+            errors=np.hypot(self.errors, other.errors)
+        )
+    
+    
     def __getitem__(self, index):
         """Return content and error for bin with given index.
         
@@ -130,6 +150,94 @@ class Hist1D:
         """
         
         return Bin(self.contents[index], self.errors[index])
+    
+    
+    def __iadd__(self, other):
+        """Add another histogram to this one."""
+        
+        if isinstance(other, ROOT.TH1):
+            other = Hist1D(other)
+        
+        if other.is_blanc:
+            return self
+        
+        if self.is_blanc:
+            self._reset_on_template(other)
+        
+        self._check_binning(other)
+        
+        self.contents += other.contents
+        self.errors = np.hypot(self.errors, other.errors)
+        
+        return self
+    
+    
+    def __imul__(self, factor):
+        """Multiply contents of this histogram by given factor."""
+        
+        if self.is_blanc:
+            return self
+        
+        self.contents *= factor
+        self.errors *= factor
+        
+        return self
+    
+    
+    def __isub__(self, other):
+        """Subtract another histogram from this one."""
+        
+        if isinstance(other, ROOT.TH1):
+            other = Hist1D(other)
+        
+        if other.is_blanc:
+            return self
+        
+        if self.is_blanc:
+            self._reset_on_template(other)
+        
+        self._check_binning(other)
+        
+        self.contents -= other.contents
+        self.errors = np.hypot(self.errors, other.errors)
+        
+        return self
+    
+    
+    def __mul__(self, factor):
+        """Scale histogram contents by a factor."""
+        
+        if self.is_blanc:
+            return self
+        
+        return Hist1D(
+            binning=np.copy(self.binning),
+            contents=self.contents * factor,
+            errors=self.errors * factor
+        )
+    
+    
+    __rmul__ = __mul__
+    
+    
+    def __sub__(self, other):
+        """Subtract another histogram."""
+        
+        if isinstance(other, ROOT.TH1):
+            other = Hist1D(other)
+        
+        if self.is_blanc:
+            return -1 * deepcopy(other)
+        elif other.is_blanc:
+            return deepcopy(self)
+        
+        self._check_binning(other)
+        
+        return Hist1D(
+            binning=np.copy(self.binning),
+            contents=self.contents - other.contents,
+            errors=np.hypot(self.errors, other.errors)
+        )
     
     
     @property
@@ -154,3 +262,18 @@ class Hist1D:
             raise RuntimeError('Number of bins is not defined for a blanc histogram.')
         
         return len(self.binning) - 1
+    
+    
+    def _check_binning(self, other):
+        """Raise an exception is binnings are not identical."""
+        
+        if not np.array_equal(self.binning, other.binning):
+            raise RuntimeError('Binnings of the two histograms being added do not match.')
+    
+    
+    def _reset_on_template(self, other):
+        """Copy binning and clear contents."""
+        
+        self.binning = np.copy(other.binning)
+        self.contents = np.zeros(len(self.binning) + 1, dtype=self.binning.dtype)
+        self.errors = np.zeros_like(self.contents)
