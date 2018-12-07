@@ -55,7 +55,7 @@ class Hist1D:
             if not isinstance(args[0], ROOT.TH1):
                 raise TypeError('ROOT histogram expected, got {}.'.format(type(args[0])))
             
-            if binning is None or contents is not None or errors is not None:
+            if binning is not None or contents is not None or errors is not None:
                 raise RuntimeError(
                     'When initializing from a ROOT histogram, no other arguments are allowed.'
                 )
